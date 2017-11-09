@@ -1,0 +1,819 @@
+<?php
+
+function datavis_menu() {
+    $items = array();
+
+
+    $items['datavis/gallery'] = array(
+        'page callback' => 'datavis_gallery_empty',
+        'access arguments' => array('datavis_view_gallery'),
+        'type' => MENU_CALLBACK,
+        'variables' => array(
+            'from' => NULL,
+            'to' => NULL,
+        ),
+    );
+    $items['datavis/gallery/%/%'] = array(
+        'page callback' => 'datavis_gallery',
+        'access arguments' => array('datavis_view_gallery'),
+        'page arguments' => array(2, 3),
+        'type' => MENU_CALLBACK,
+        'variables' => array(
+            'from' => NULL,
+            'to' => NULL,
+        ),
+    );
+
+    $items['admin/config/datavis'] = array(
+        'title' => 'Datavis',
+        'description' => 'Configuration for datavis module',
+        'position' => 'left',
+        'weight' => -100,
+        'page callback' => 'system_admin_menu_block_page',
+        'access arguments' => array('administer site configuration'),
+        'file' => 'system.admin.inc',
+        'file path' => drupal_get_path('module', 'system'),
+    );
+    $items['admin/config/datavis/datavis'] = array(
+        'title' => 'Datavis',
+        'description' => 'Configure datavis module',
+        'page callback' => 'datavis_config_callback',
+        'access arguments' => array('administer site configuration'),
+    );
+
+    return $items;
+}
+
+function datavis_permission() {
+    return array(
+        'datavis_view_gallery' => array(
+            'title' => t('View datavis gallery page'),
+            'description' => t('view Datavis Data Gallery.'),
+        ),
+    );
+}
+
+function datavis_preprocess_page(&$variables) {
+    drupal_add_js(drupal_get_path('module', 'datavis') . '/lib/dygraphs/dygraph.min.js');
+    drupal_add_css(drupal_get_path('module', 'datavis') . '/lib/dygraphs/dygraph.css');
+    drupal_add_css(drupal_get_path('module', 'datavis') . '/datavis.css');
+}
+
+function datavis_theme() {
+    return array(
+        'gallery' => array(
+            'template' => 'templates/gallery', /* create file with this name + .tpl.php */
+        ),
+        'gallery_empty' => array(
+            'template' => 'templates/gallery_empty', /* create file with this name + .tpl.php */
+        ),
+    );
+}
+
+function datavis_preprocess_gallery(&$vars) {
+    $from = $vars['from'];
+    $to = $vars['to'];
+    $form = drupal_get_form('datavis_form', $vars['from'], $vars['to']);
+    $vars['my_form'] = drupal_render($form);
+
+    // TITLES
+    $carbon_title = variable_get('datavis_carbon_title');
+    $photo_title = variable_get('datavis_photo_title');
+    $stem_title = variable_get('datavis_stem_title');
+    $root_title = variable_get('datavis_root_title');
+    $canopy_title = variable_get('datavis_canopy_title');
+
+    $par_title = variable_get('datavis_par_title');
+    $temp_title = variable_get('datavis_temp_title');
+    $tsoil_title = variable_get('datavis_tsoil_title');
+    $wsoil_title = variable_get('datavis_wsoil_title');
+    $rh_title = variable_get('datavis_rh_title');
+
+    // LABELS
+    $carbon_label = variable_get('datavis_carbon_label');
+    $photo_label = variable_get('datavis_photo_label');
+    $stem_label = variable_get('datavis_stem_label');
+    $root_label = variable_get('datavis_root_label');
+    $canopy_label = variable_get('datavis_canopy_label');
+
+    $par_label = variable_get('datavis_par_label');
+    $temp_label = variable_get('datavis_temp_label');
+    $tsoil_label = variable_get('datavis_tsoil_label');
+    $wsoil_label = variable_get('datavis_wsoil_label');
+    $rh_label = variable_get('datavis_rh_label');
+
+    $colors = array();
+
+    $colors['carbon_graph_color'] = variable_get('datavis_carbon_graph_color');
+    $colors['carbon_photo_color'] = variable_get('datavis_carbon_photo_color');
+    $colors['carbon_root_color'] = variable_get('datavis_carbon_root_color');
+    $colors['carbon_stem_color'] = variable_get('datavis_carbon_stem_color');
+    $colors['carbon_canopy_color'] = variable_get('datavis_carbon_canopy_color');
+    $colors['par_graph_color'] = variable_get('datavis_par_graph_color');
+    $colors['temp_graph_color'] = variable_get('datavis_temp_graph_color');
+    $colors['tsoil_graph_color'] = variable_get('datavis_tsoil_graph_color');
+    $colors['wsoil_graph_color'] = variable_get('datavis_wsoil_graph_color');
+    $colors['rh_graph_color'] = variable_get('datavis_rh_graph_color');
+    $colors['widget_graph_color'] = variable_get('datavis_widget_graph_color');
+    $colors['widget_line_color'] = variable_get('datavis_widget_line_color');
+
+
+
+//
+//    $widget_data = _get_test_data();
+//    drupal_add_js(array('datavis' => array('widget_data' => array('data' => $widget_data, 'title' => t($carbon_title), 'label' => t($carbon_label)))), array('type' => 'setting'));
+// FETCH DATA via APIs and add the data into javascript
+    $carbon_api = variable_get('datavis_carbon_api');
+    $par_api_url = variable_get('datavis_par_api');
+    $temp_api_url = variable_get('datavis_temp_api');
+    $tsoil_api_url = variable_get('datavis_tsoil_api');
+    $wsoil_api_url = variable_get('datavis_wsoil_api');
+    $rh_api_url = variable_get('datavis_rh_api');
+
+    $carbon_data = _api_query_carbon($carbon_api, $from, $to);
+    drupal_add_js(array('datavis' => array('carbon_data' => array('data' => $carbon_data, 'title' => t($carbon_title), 'label' => t($carbon_label)))), array('type' => 'setting'));
+    drupal_add_js(array('datavis' => array(
+            'carbon_data_titles' => array(
+                'carbon_title' => t($carbon_title),
+                'carbon_label' => t($carbon_label),
+                'photo_title' => t($photo_title),
+                'photo_label' => t($photo_label),
+                'stem_title' => t($stem_title),
+                'stem_label' => t($stem_label),
+                'root_title' => t($root_title),
+                'root_label' => t($root_label),
+                'canopy_title' => t($canopy_title),
+                'canopy_label' => t($canopy_label),
+            ))), array('type' => 'setting'));
+
+    $temp_data = _api_query2($temp_api_url, $from, $to);
+    drupal_add_js(array('datavis' => array('temp_data' => array('data' => $temp_data, 'title' => t($temp_title), 'label' => t($temp_label)))), array('type' => 'setting'));
+
+////PAR2
+    $par_data = _api_query2($par_api_url, $from, $to);
+
+    drupal_add_js(array('datavis' => array('par_data' => array('data' => $par_data, 'title' => t($par_title), 'label' => t($par_label)))), array('type' => 'setting'));
+//
+    $soil_data = _api_query2($tsoil_api_url, $from, $to);
+    drupal_add_js(array('datavis' => array('soil_data' => array('data' => $soil_data, 'title' => t($tsoil_title), 'label' => t($tsoil_label)))), array('type' => 'setting'));
+
+    $soil_water_data = _api_query2($wsoil_api_url, $from, $to);
+    drupal_add_js(array('datavis' => array('soil_water_data' => array('data' => $soil_water_data, 'title' => t($wsoil_title), 'label' => t($wsoil_label)))), array('type' => 'setting'));
+
+//    ,RH1250
+    $rh_data = _api_query2($rh_api_url, $from, $to);
+
+    drupal_add_js(array('datavis' => array('rh_data' => array('data' => $rh_data, 'title' => t($rh_title), 'label' => t($rh_label)))), array('type' => 'setting'));
+
+    drupal_add_js(array('datavis' => array('colors' => $colors)), array('type' => 'setting'));
+     drupal_add_js(array('datavis' => array('no_data_text' => t('no data available'))), array('type' => 'setting'));
+
+//    // fetch datavis texts from db by datavis content type titles and send texts to template
+    // Get Datagallery infotexts from database
+
+    $query = new EntityFieldQuery();
+    $contents = array();
+    global $language;
+    $entities = $query->entityCondition('entity_type', 'node')
+            ->propertyCondition('type', 'datavis')
+            ->propertyCondition('status', 1)
+            ->propertyCondition('language', $language->language)
+            ->execute();
+    if (!empty($entities['node'])) {
+        foreach ($entities['node'] as $key => $value) {
+            $node = node_load($key);
+            $contents[$node->title] = $node->body['und'][0]['value'];
+        }
+    }
+
+    $vars['content_carbon'] = $contents['datavis_carbon'];
+    $vars['content_intro'] = $contents['datavis_intro'];
+    $vars['content_par'] = $contents['datavis_par'];
+    $vars['content_temp'] = $contents['datavis_temp'];
+    $vars['content_rh'] = $contents['datavis_rh'];
+    $vars['content_tsoil'] = $contents['datavis_tsoil'];
+    $vars['content_wsoil'] = $contents['datavis_wsoil'];
+    $vars['content_widget'] = $contents['datavis_widget'];
+}
+
+function datavis_preprocess_gallery_empty(&$vars) {
+    $form = drupal_get_form('datavis_form');
+    $vars['my_form'] = drupal_render($form);
+}
+
+function datavis_form($form, &$form_state, $from, $to) {
+
+    if (!empty($from)) {
+        $from_time = strtotime($from);
+        $to_time = strtotime($to);
+        $from = array('year' => date('Y', $from_time), 'month' => date('n', $from_time), 'day' => date('j', $from_time));
+        $to = array('year' => date('Y', $to_time), 'month' => date('n', $to_time), 'day' => date('j', $to_time));
+    } else {
+        $from_time = time() - 60 * 60 * 24;
+        $to_time = time();
+        $from = array('year' => date('Y', $from_time), 'month' => date('n', $from_time), 'day' => date('j', $from_time));
+        $to = array('year' => date('Y', $to_time), 'month' => date('n', $to_time), 'day' => date('j', $to_time));
+    }
+    $form['from'] = array(
+        '#title' => t('Start date'),
+        '#type' => 'date',
+        '#date_format' => 'Y-m-d',
+        '#default_value' => $from,
+    );
+    $format = 'Y-m-d';
+    $form['to'] = array(
+        '#title' => t('End date'),
+        '#type' => 'date',
+        '#date_format' => 'Y-m-d',
+        '#default_value' => $to,
+    );
+
+
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Update'),
+        '#weight' => 15,
+    );
+
+    return $form;
+}
+
+function datavis_empty_form_submit($form, &$form_state) {
+    $from = $form_state['values']['from']['year'] . "-" . $form_state['values']['from']['month'] . "-" . $form_state['values']['from']['day'];
+    $to = $form_state['values']['to']['year'] . "-" . $form_state['values']['to']['month'] . "-" . $form_state['values']['to']['day'];
+
+
+
+    $valid_params = _validate_gallery_dates($from, $to);
+    if (!$valid_params) {
+//         if error, return to empty gallery page;
+        $form_state['redirect'] = "/datavis/gallery/";
+    } else {
+        $form_state['redirect'] = "/datavis/gallery/" . $from . "/" . $to;
+    }
+}
+
+function datavis_form_submit($form, &$form_state) {
+
+    $from = $form_state['values']['from']['year'] . "-" . $form_state['values']['from']['month'] . "-" . $form_state['values']['from']['day'];
+    $to = $form_state['values']['to']['year'] . "-" . $form_state['values']['to']['month'] . "-" . $form_state['values']['to']['day'];
+
+
+
+    $valid_params = _validate_gallery_dates($from, $to);
+
+    if (!$valid_params) {
+        // if error, return to empty gallery page;
+        $form_state['redirect'] = "/datavis/gallery/";
+    } else {
+        $form_state['redirect'] = "/datavis/gallery/" . $from . "/" . $to;
+    }
+}
+
+function datavis_config_callback() {
+
+    return drupal_render(drupal_get_form('datavis_config_form'));
+}
+
+function datavis_config_form($form, &$form_state) {
+    // Carbon flow form
+    $form['carbon_flow'] = array(
+        '#title' => t('Config for Carbon flow graph'),
+        '#type' => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+    );
+    $form['carbon_flow']['carbon_title'] = array(
+        '#title' => t('Title for Carbon flow graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_carbon_title'),
+    );
+    $form['carbon_flow']['carbon_label'] = array(
+        '#title' => t('Y-Label for Carbon flow graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_carbon_label'),
+    );
+    $form['carbon_flow']['carbon_api'] = array(
+        '#title' => t('Api address for Carbon flow data'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_carbon_api'),
+        '#maxlength' => 255,
+        '#size' => 180,
+    );
+    $form['carbon_flow']['carbon_graph_color'] = array(
+        '#title' => t('Color for Carbon flow graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_carbon_graph_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+    $form['carbon_flow']['photo_title'] = array(
+        '#title' => t('Title for Photosynthesis'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_photo_title'),
+    );
+    $form['carbon_flow']['photo_label'] = array(
+        '#title' => t('Y-Label for Photosynthesis'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_photo_label'),
+    );
+    $form['carbon_flow']['carbon_photo_color'] = array(
+        '#title' => t('Color for Photosynthesis'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_carbon_photo_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+    $form['carbon_flow']['root_title'] = array(
+        '#title' => t('Title for Root respiration'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_root_title'),
+    );
+    $form['carbon_flow']['root_label'] = array(
+        '#title' => t('Y-Label for Root respiration'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_root_label'),
+    );
+    $form['carbon_flow']['carbon_root_color'] = array(
+        '#title' => t('Color for Root respiration'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_carbon_root_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+    $form['carbon_flow']['stem_title'] = array(
+        '#title' => t('Title for Stem respiration'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_stem_title'),
+    );
+    $form['carbon_flow']['stem_label'] = array(
+        '#title' => t('Y-Label for Stem respiration'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_stem_label'),
+    );
+    $form['carbon_flow']['carbon_stem_color'] = array(
+        '#title' => t('Color for Stem respiration'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_carbon_stem_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+    $form['carbon_flow']['canopy_title'] = array(
+        '#title' => t('Title for Canopy respiration'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_canopy_title'),
+    );
+    $form['carbon_flow']['canopy_label'] = array(
+        '#title' => t('Y-Label for Canopy respiration'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_canopy_label'),
+    );
+    $form['carbon_flow']['carbon_canopy_color'] = array(
+        '#title' => t('Color for Canopy respiration'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_carbon_canopy_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+
+    // Solar radiation form
+    $form['solar_radiation'] = array(
+        '#title' => t('Config for light intensity graph'),
+        '#type' => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+    );
+    $form['solar_radiation']['par_title'] = array(
+        '#title' => t('Title for light intensity graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_par_title'),
+    );
+    $form['solar_radiation']['par_label'] = array(
+        '#title' => t('Y-Label for light intensity graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_par_label'),
+    );
+    $form['solar_radiation']['par_api'] = array(
+        '#title' => t('Api address for light intensity data'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_par_api'),
+        '#maxlength' => 255,
+        '#size' => 180,
+    );
+    $form['solar_radiation']['par_graph_color'] = array(
+        '#title' => t('Color for light intensity graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_par_graph_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+
+//    AIR TEMPERATURE FORM
+    $form['air_temperature'] = array(
+        '#title' => t('Config for Air temperature graph'),
+        '#type' => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+    );
+    $form['air_temperature']['temp_title'] = array(
+        '#title' => t('Title for Air temperature graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_temp_title'),
+    );
+    $form['air_temperature']['temp_label'] = array(
+        '#title' => t('Y-Label for Air temperature graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_temp_label'),
+    );
+    $form['air_temperature']['temp_api'] = array(
+        '#title' => t('Api address for Air temperature data'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_temp_api'),
+        '#maxlength' => 255,
+        '#size' => 180,
+    );
+    $form['air_temperature']['temp_graph_color'] = array(
+        '#title' => t('Color for Air temperature graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_temp_graph_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+
+//    SOIL TEMPERATURE FORM
+    $form['soil_temperature'] = array(
+        '#title' => t('Config for soil temperature graph'),
+        '#type' => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+    );
+    $form['soil_temperature']['tsoil_title'] = array(
+        '#title' => t('Title for soil temperature graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_tsoil_title'),
+    );
+    $form['soil_temperature']['tsoil_label'] = array(
+        '#title' => t('Y-Label for soil temperature graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_tsoil_label'),
+    );
+    $form['soil_temperature']['tsoil_api'] = array(
+        '#title' => t('Api address for soil temperature data'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_tsoil_api'),
+        '#maxlength' => 255,
+        '#size' => 180,
+    );
+    $form['soil_temperature']['tsoil_graph_color'] = array(
+        '#title' => t('Color for soil temperature graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_tsoil_graph_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+
+//    SOIL MOISTURE FORM
+    $form['soil_moisture'] = array(
+        '#title' => t('Config for Soil moisture graph'),
+        '#type' => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+    );
+    $form['soil_moisture']['wsoil_title'] = array(
+        '#title' => t('Title for Soil moisture graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_wsoil_title'),
+    );
+    $form['soil_moisture']['wsoil_label'] = array(
+        '#title' => t('Y-Label for Soil moisture graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_wsoil_label'),
+    );
+    $form['soil_moisture']['wsoil_api'] = array(
+        '#title' => t('Api address for Soil moisture data'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_wsoil_api'),
+        '#maxlength' => 255,
+        '#size' => 180,
+    );
+    $form['soil_moisture']['wsoil_graph_color'] = array(
+        '#title' => t('Color for Soil moisture graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_wsoil_graph_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+
+//    AIR HUMIDITY FORM
+    $form['air_humidity'] = array(
+        '#title' => t('Config for Air humidity graph'),
+        '#type' => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+    );
+    $form['air_humidity']['rh_title'] = array(
+        '#title' => t('Title for Air humidity graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_rh_title'),
+    );
+    $form['air_humidity']['rh_label'] = array(
+        '#title' => t('Y-Label for Air humidity graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_rh_label'),
+    );
+    $form['air_humidity']['rh_api'] = array(
+        '#title' => t('Api address for Air humidity data'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_rh_api'),
+        '#maxlength' => 255,
+        '#size' => 180,
+    );
+    $form['air_humidity']['rh_graph_color'] = array(
+        '#title' => t('Color for Air humidity graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_rh_graph_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+
+    // Widget flow form
+    $form['widget'] = array(
+        '#title' => t('Config for plotter graph'),
+        '#type' => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+    );
+    $form['widget']['widget_title'] = array(
+        '#title' => t('Title for plotter graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_widget_title'),
+    );
+    $form['widget']['widget_label'] = array(
+        '#title' => t('Y-Label for plotter graph'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_widget_label'),
+    );
+    $form['widget']['widget_graph_color'] = array(
+        '#title' => t('Color for plotter dots'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_widget_graph_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+    $form['widget']['widget_line_color'] = array(
+        '#title' => t('Color for plotter line'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('datavis_widget_line_color'),
+        '#maxlength' => 20,
+        '#size' => 20,
+    );
+
+    $form['actions']['update'] = array(
+        '#type' => 'submit',
+        '#value' => t('Update'),
+        '#weight' => 15,
+        '#submit' => array('datavis_config_form_submit'),
+    );
+
+    return $form;
+}
+
+function datavis_config_form_submit($form, &$form_state) {
+    // SET graph titles by user input values
+    variable_set('datavis_carbon_title', $form_state['input']['carbon_title']);
+    variable_set('datavis_photo_title', $form_state['input']['photo_title']);
+    variable_set('datavis_root_title', $form_state['input']['root_title']);
+    variable_set('datavis_stem_title', $form_state['input']['stem_title']);
+    variable_set('datavis_canopy_title', $form_state['input']['canopy_title']);
+
+    variable_set('datavis_par_title', $form_state['input']['par_title']);
+    variable_set('datavis_temp_title', $form_state['input']['temp_title']);
+    variable_set('datavis_tsoil_title', $form_state['input']['tsoil_title']);
+    variable_set('datavis_wsoil_title', $form_state['input']['wsoil_title']);
+    variable_set('datavis_rh_title', $form_state['input']['rh_title']);
+    variable_set('datavis_widget_title', $form_state['input']['widget_title']);
+    // SET labels by user input values
+    variable_set('datavis_carbon_label', $form_state['input']['carbon_label']);
+    variable_set('datavis_photo_label', $form_state['input']['photo_label']);
+    variable_set('datavis_root_label', $form_state['input']['root_label']);
+    variable_set('datavis_stem_label', $form_state['input']['stem_label']);
+    variable_set('datavis_canopy_label', $form_state['input']['canopy_label']);
+
+    variable_set('datavis_par_label', $form_state['input']['par_label']);
+    variable_set('datavis_temp_label', $form_state['input']['temp_label']);
+    variable_set('datavis_tsoil_label', $form_state['input']['tsoil_label']);
+    variable_set('datavis_wsoil_label', $form_state['input']['wsoil_label']);
+    variable_set('datavis_rh_label', $form_state['input']['rh_label']);
+    variable_set('datavis_widget_label', $form_state['input']['widget_label']);
+
+//    SET API Addresses by user input values
+    variable_set('datavis_carbon_api', $form_state['input']['carbon_api']);
+    variable_set('datavis_par_api', $form_state['input']['par_api']);
+    variable_set('datavis_temp_api', $form_state['input']['temp_api']);
+    variable_set('datavis_tsoil_api', $form_state['input']['tsoil_api']);
+    variable_set('datavis_wsoil_api', $form_state['input']['wsoil_api']);
+    variable_set('datavis_rh_api', $form_state['input']['rh_api']);
+    drupal_set_message(t("Update succesful! Remember to update the translations "));
+
+//    SET COLORS by user input values
+
+    variable_set('datavis_carbon_graph_color', $form_state['input']['carbon_graph_color']);
+    variable_set('datavis_carbon_photo_color', $form_state['input']['carbon_photo_color']);
+    variable_set('datavis_carbon_root_color', $form_state['input']['carbon_root_color']);
+    variable_set('datavis_carbon_stem_color', $form_state['input']['carbon_stem_color']);
+    variable_set('datavis_carbon_canopy_color', $form_state['input']['carbon_canopy_color']);
+    variable_set('datavis_par_graph_color', $form_state['input']['par_graph_color']);
+    variable_set('datavis_temp_graph_color', $form_state['input']['temp_graph_color']);
+    variable_set('datavis_tsoil_graph_color', $form_state['input']['tsoil_graph_color']);
+    variable_set('datavis_wsoil_graph_color', $form_state['input']['wsoil_graph_color']);
+    variable_set('datavis_rh_graph_color', $form_state['input']['rh_graph_color']);
+    variable_set('datavis_widget_graph_color', $form_state['input']['widget_graph_color']);
+    variable_set('datavis_widget_line_color', $form_state['input']['widget_line_color']);
+
+
+    drupal_set_message(t("Update succesful! Remember to update the translations "));
+}
+
+function datavis_gallery_empty() {
+
+    $query = new EntityFieldQuery();
+    $contents = array();
+    global $language;
+    $entities = $query->entityCondition('entity_type', 'node')
+            ->propertyCondition('type', 'datavis')
+            ->propertyCondition('status', 1)
+            ->propertyCondition('language', $language->language)
+            ->execute();
+    if (!empty($entities['node'])) {
+        foreach ($entities['node'] as $key => $value) {
+            $node = node_load($key);
+            $contents[$node->title] = $node->body['und'][0]['value'];
+        }
+    }
+    return theme("gallery_empty", array('content_intro' => $contents['datavis_intro']));
+}
+
+function datavis_gallery($from, $to) {
+    return theme("gallery", array(
+        'from' => $from,
+        'to' => $to,
+    ));
+}
+
+function _validate_gallery_dates($from, $to) {
+
+    $valid = true;
+    if (strtotime($to) < strtotime($from)) {
+        drupal_set_message(t("End date is before Start date"), 'warning');
+        $valid = false;
+    }
+    if (abs(strtotime($to) - strtotime($from) > 366 * 60 * 60 * 24)) {
+        drupal_set_message(t("Time range can be set only up to 1 year"), 'warning');
+        $valid = false;
+    }
+    if (!preg_match("/^[0-9]{4}-(0[1-9]|[1-9]|1[0-2])-(0[1-9]|[1-9]|[1-2][0-9]|3[0-1])$/", $from)) {
+        drupal_set_message(t("Start date is in wrong format"), 'warning');
+        $valid = false;
+    }
+    if (!preg_match("/^[0-9]{4}-(0[1-9]|[1-9]|1[0-2])-(0[1-9]|[1-9]|[1-2][0-9]|3[0-1])$/", $to)) {
+        drupal_set_message(t("End date is in wrong format"), 'warning');
+        $valid = false;
+    }
+    if ($valid) {
+        return true;
+    } else {
+        // if params are not valid, return to empty gallery page with error messages;
+        return false;
+    }
+}
+
+function _api_query_carbon($url, $from = '2016-01-01', $to = '2016-02-02') {
+    // Retrieve data from the external API
+    $api_url = $url . '?from=' . $from . '&to=' . $to;
+    $response = drupal_http_request($api_url);
+//     Check the HTTP response code to see if a valid response was received
+    if ($response->code >= 200 && $response->code < 300) {
+        // a valid response was received, so we return the data
+        return $response->data;
+    }
+    // A valid response was not received, so we return FALSE
+    return FALSE;
+}
+
+function _api_query2($url, $from = '2016-01-01', $to = '2016-02-02') {
+
+    // Retrieve data from the external API
+    $api_url = $url . '&from=' . $from . '%2000:00:00.989&to=' . $to . '%2023:30:989';
+    $response = drupal_http_request($api_url);
+//     Check the HTTP response code to see if a valid response was received
+    if ($response->code >= 200 && $response->code < 300) {
+        // a valid response was received, so we return the data
+        return $response->data;
+    }
+    // A valid response was not received, so we return FALSE
+    return FALSE;
+}
+
+//
+//function datavis_install() {
+//
+//    $t = get_t(); // We need to instantiate the t() function as it’s not available in the installation phase
+//    // Step 1 - Defining the content type and saving it
+//
+//    $content_type = array(
+//        'type' => 'datavis',
+//        'name' => $t('Datavis'),
+//        'description' => $t('Info Texts for datavis widgets'),
+//        'title_label' => $t('Datavis title'),
+//        'base' => 'node_content',
+//        'custom' => TRUE,
+//    );
+//
+//    $node_type = node_type_set_defaults($content_type); // Return a node type object with default values
+//
+//    node_type_save($node_type); // Save the node type object
+//    node_add_body_field($node_type);
+//    variable_set('language_content_type_datavis', TRANSLATION_ENABLED);
+//    // create default contents in english into db
+//// Set Default data gallery infotexts
+//    $datavis_titles_en = array("datavis_intro" => "<h1>Data Gallery</h1><p>Data Gallery is for downloading and visualizing the data used and produced in the Carbon tree. With these interactive visualizations you can explore carbon flow and the input data used in it. You can select the time span for the graphs by setting the dates. The data used in the graphs is also available to download.</p>",
+//        "datavis_par" => "<h1>Light Intensity</h1>Sunlight makes photosynthesis possible. Photosynthetically active radiation (PAR) is the visible part of sunlight  (wavelength range 400 to 700 nm). PAR is measured with a photodiode that is sensitive to the radiation at the wavelengths of visible sunlight. PAR data from Hyytiälä is available since 1997 and it is measured at height of 18m. Read more about Solar radiation</p>",
+//        "datavis_temp" => "<h1>Air Temperature </h1><p>Air temperature is one of the abiotic factors of photosynthesis. Solar radiation is reflected into air temperature by the absorption of solar radiation. The data of air temperature from Hyytiälä is available since 1996 and it is measured at various heights. Read more about Air temperature.</p>",
+//        "datavis_tsoil" => "<h1>Soil Temperature</h1> <p>Air temperature is one of the abiotic factors of photosynthesis. Solar radiation is reflected into air temperature by the absorption of solar radiation. The data of air temperature from Hyytiälä is available since 1996 and it is measured at various heights. Read more about Air temperature</p>",
+//        "datavis_wsoil" => "<h1>Soil Moisture</h1><p>Soil moisture plays an important role in the biological and chemical processes occurring in the soil. Together with soil temperature, they affect carbon and nitrogen cycles in forests. Soil moisture increases with rain and decreases during rainless period. Therefore, soil moisture does not have a clear diurnal pattern unlike soil temperature. The data from Hyytiälä is available since 1997?. Read more about Soil moisture.</p>",
+//        "datavis_rh" => "<h1>Air humidity</h1><p>The water holding capacity of air depends sharply on the air's temperature.  Most of the diurnal changes in the air humidity are caused by the changes in temperature. If the day is cloudy with no significant increases in temperature occurring, the air moisture stays high. At a given temperature, air is saturated when relative humidity (RH) is 100%. The data from Hyytiälä is available since 1997?. Read more about Air humidity.</p>",
+//        "datavis_carbon" => "<h1>Carbon flow</h1><p>Carbon flow is the difference between the carbon fixed in photosynthesis and the carbon released in respiration. When the tree is fixing carbon in photosynthesis more than it releases in respiration, the flow is positive. Read more about Photosynthesis.</p>",
+//        "datavis_widget" => "<h1>Carbon flow plotter</h1><p>Data plotter text here</p>",
+//        );
+//    $tids = array();
+//    foreach ($datavis_titles_en as $key => $value) {
+//        global $user;
+//        $node = new stdClass();
+//        $node->title = $key;
+//        $node->type = "datavis";
+//        node_object_prepare($node); // Sets some defaults. Invokes hook_prepare() and hook_node_prepare().
+//        $node->language = 'en'; // Or e.g. 'en' if locale is enabled
+//        $node->uid = 1;
+//        $node->status = 1; //(1 or 0): published or not
+//        $node->promote = 0; //(1 or 0): promoted to front page
+//        $node->comment = 1; // 0 = comments disabled, 1 = read only, 2 = read/write
+//        $node->body[LANGUAGE_NONE][] = array(
+//            'value' => $value,
+//        );
+//
+//        $node = node_submit($node); // Prepare node for saving
+//        node_save($node);
+//        $node->tnid = $node->nid;
+//        node_save($node);
+//        $tnids[$key] = $node->nid;
+//    }
+//
+//
+//    $langs = ['fi', 'sv', 'zh-hans'];
+//    foreach ($langs as $lang_value) {
+//        foreach ($datavis_titles_en as $key => $value) {
+//            global $user;
+//            $node = new stdClass();
+//            $node->title = $key;
+//            $node->type = "datavis";
+//            node_object_prepare($node); // Sets some defaults. Invokes hook_prepare() and hook_node_prepare().
+//            $node->language = $lang_value; // Or e.g. 'en' if locale is enabled
+//            $node->uid = 1;
+//            $node->tnid = $tnids[$key];
+//            $node->status = 1; //(1 or 0): published or not
+//            $node->promote = 0; //(1 or 0): promoted to front page
+//            $node->comment = 1; // 0 = comments disabled, 1 = read only, 2 = read/write
+//            $node->body[LANGUAGE_NONE][] = array(
+//                'value' => $value,
+//            );
+//
+//            $node = node_submit($node); // Prepare node for saving
+//            node_save($node);
+//        }
+//    }
+//    // set default titles and labels for datavis graphs
+//    // TITLES
+//    variable_set('datavis_carbon_title', 'Hyytiälä Carbon flow');
+//    variable_set('datavis_par_title', 'Hyytiälä Light Intensity');
+//    variable_set('datavis_temp_title', "Hyytiälä Air temperature (°C)");
+//    variable_set('datavis_tsoil_title', "Hyytiälä Soil temperature (°C)");
+//    variable_set('datavis_wsoil_title', "Hyytiälä Soil moisture (m3m⁻3)");
+//    variable_set('datavis_rh_title', "Hyytiälä Air humidity (%)");
+//      variable_set('datavis_widget_title', "Data plotter");
+//
+//    // LABELS
+//    variable_set('datavis_carbon_label', 'Carbon flow');
+//    variable_set('datavis_par_label', 'Light Intensity (µmol m⁻² s⁻¹)');
+//    variable_set('datavis_temp_label', 'Air temperature (°C)');
+//    variable_set('datavis_tsoil_label', 'Soil temperature (°C)');
+//    variable_set('datavis_wsoil_label', 'Soil moisture (m3m⁻3)');
+//    variable_set('datavis_rh_label', 'Air humidity (%)');
+//    variable_set('datavis_widget_label', 'Data plotter');
+//    
+//    variable_set('datavis_carbon_api', 'http://hiilipuu.fi:8080/csv_hyytiala');
+//    variable_set('datavis_temp_api', 'https://avaa.tdata.fi/smear-services/smeardata.jsp?variables=T336&table=HYY_META&quality=ANY&averaging=30MIN&type=ARITHMETIC');
+//    variable_set('datavis_tsoil_api', 'https://avaa.tdata.fi/smear-services/smeardata.jsp?variables=tsoil_A&table=HYY_META&quality=ANY&averaging=30MIN&type=ARITHMETIC');
+//    variable_set('datavis_wsoil_api', 'https://avaa.tdata.fi/smear-services/smeardata.jsp?variables=wsoil_A&table=HYY_META&quality=ANY&averaging=30MIN&type=ARITHMETIC');
+//    variable_set('datavis_par_api', 'https://avaa.tdata.fi/smear-services/smeardata.jsp?variables=PAR2&table=HYY_META&quality=ANY&averaging=30MIN&type=ARITHMETIC');
+//    variable_set('datavis_rh_api', 'https://avaa.tdata.fi/smear-services/smeardata.jsp?variables=RH672&table=HYY_META&quality=ANY&averaging=30MIN&type=ARITHMETIC');
+//}

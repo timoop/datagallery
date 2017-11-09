@@ -1,0 +1,53 @@
+#datavis_graphrow{
+       margin-top: 30px; 
+    margin-bottom: 30px;
+     margin-left: 100px; 
+}
+#datavis_graphdiv{
+    display: inline-block;
+    width: 45%;
+    vertical-align:top;
+    min-width: 460px;
+}
+#datavis_textdiv{
+    display: inline-block;
+    width: 40%;
+    vertical-align:top;
+    margin-top: 30px
+}
+#datavis_linkdiv{
+    margin-left: 54px;
+}
+#datavis_form{
+    display: inline-block;
+    width: 25%;
+    vertical-align:top;
+    min-width: 200px;
+
+}
+#datavis_downloadlinks{
+    display: inline-block;
+    width: 20%;
+    /*min-width: 50px;*/
+}
+#datavis_intro_txt{
+    display: inline-block;
+    width: 40%;
+    vertical-align:top;
+    /*margin-top: 50px;*/
+    /*padding-left: 125px;*/ 
+    vertical-align:top;
+}
+#links {
+    /*display: inline-block;*/
+    /*padding-left: 10px;*/ 
+}
+#datavis_intro {
+    margin-left: 100px; 
+    margin-top: 30px; 
+    margin-bottom: 30px;
+  
+}
+.dygraph-title{
+font-size: 0.7em;
+}
